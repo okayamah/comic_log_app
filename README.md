@@ -1,0 +1,1 @@
+# comic_log_app
