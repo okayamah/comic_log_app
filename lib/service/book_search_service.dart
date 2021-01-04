@@ -16,8 +16,22 @@ class BookSearchService extends ChangeNotifier {
   // booksテーブルリポジトリの初期化.
   BooksRepository _booksRepository = new BooksRepository();
 
+  // 検索インデックス、総計件数
+  int pageIndex = 0;
+  int totalPage = null;
+  int totalCnt = 0;
+
   // 検索の中身
-  Future<void> searchByTitle() async {
+  Future<void> searchByTitle(bool isScroll) async {
+    if (isScroll && totalPage != null && pageIndex >= totalPage) {
+      return;
+    }
+    if (isScroll) {
+      pageIndex++;
+    } else {
+      pageIndex = 1;
+      totalPage = null;
+    }
     requestRakutenBooksAPI(this.text);
   }
 
@@ -73,15 +87,30 @@ class BookSearchService extends ChangeNotifier {
     // This example uses the Rakuten Books API to search for books about http.
     // https://webservice.rakuten.co.jp/api/booksbooksearch
     var url =
-        'https://app.rakuten.co.jp/services/api/BooksBook/Search/20170404?applicationId=1013299307452449948&title=${title}&hits=30&page=1&outOfStockFlag=1&size=9&sort=%2BreleaseDate';
+        'https://app.rakuten.co.jp/services/api/BooksBook/Search/20170404?applicationId=1013299307452449948&title=${title}&hits=30&page=${pageIndex}&outOfStockFlag=1&size=9&sort=%2BreleaseDate';
 
     // Await the http get response, then decode the json-formatted response.
     var response = await http.get(url);
     if (response.statusCode == 200) {
       var jsonResponse = convert.jsonDecode(response.body);
+      var itemHits = 0;
       var itemCount = jsonResponse['count'];
       var itemList = jsonResponse['Items'];
       print('Number of books about http: $itemCount.');
+
+      // 合計表示データ数
+      itemList.forEach((element) {
+          var item = element['Item'];
+        if (item['title'].toString().contains(title) &&
+            item['largeImageUrl'] != null) {
+          itemHits++;
+        }
+      });
+      totalCnt = searchResultList.length + itemHits;
+      print('Number of books In Disp: $totalCnt.');
+
+      // 合計ページ数
+      totalPage = jsonResponse['pageCount'];
 
       if (itemList != null) {
         itemList.forEach((element) async {
@@ -112,6 +141,7 @@ class BookSearchService extends ChangeNotifier {
 
             searchResultList.add(card);
             // searchResultList.sort((a,b) => a.isbn.compareTo(b.isbn));
+
             notifyListeners(); // これを実行すると再描画される
           }
         });
@@ -237,14 +267,16 @@ class BookSearchService extends ChangeNotifier {
   }
 
   void insertBook(int index) {
-    if (searchResultList.elementAt(index) != null && searchResultList.elementAt(index).status == BookStatus.NotSet) {
+    if (searchResultList.elementAt(index) != null &&
+        searchResultList.elementAt(index).status == BookStatus.NotSet) {
       if (_booksRepository != null) {
         try {
           // DB登録
           searchResultList.elementAt(index).status = BookStatus.NotPurchased;
           _booksRepository.insert(searchResultList.elementAt(index));
         } catch (e) {
-          print("Error: insert books. [Title: ${searchResultList.elementAt(index).title}]");
+          print(
+              "Error: insert books. [Title: ${searchResultList.elementAt(index).title}]");
         }
       }
     }

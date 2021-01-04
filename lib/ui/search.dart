@@ -55,7 +55,7 @@ class _SearchPageState extends State<SearchPage> {
                     color: Colors.white,
                     onPressed: () {
                       model.searchResultList.clear();
-                      model.searchByTitle();
+                      model.searchByTitle(false);
                     }),
                 hintText: "名前で調べる...",
               ),
@@ -66,12 +66,24 @@ class _SearchPageState extends State<SearchPage> {
               Text('検索結果がリストで表示されます'),
               Expanded(
                 // Column内でListView.builderを使う場合Expandedなどで描画を引き伸ばしおかないと無理みたいです。
-                child: ListView.builder(
-                  itemCount:
-                      model.searchResultList.length, // ここで要素数を指定できる 検索結果の長さを渡す
-                  itemBuilder: (BuildContext context, int index) {
-                    return _searchList(context, model, index); // 上で指定した数だけ繰り返す
+                child: RefreshIndicator(
+                  onRefresh: () async {
+                    print('Loading New Data');
+                    model.searchResultList.clear();
+                    model.searchByTitle(false);
                   },
+                  child: ListView.builder(
+                    itemCount: model
+                        .searchResultList.length, // ここで要素数を指定できる 検索結果の長さを渡す
+                    itemBuilder: (BuildContext context, int index) {
+                      if (index == model.totalCnt - 1) {
+                        print('Loading Last Data: ${index}');
+                        model.searchByTitle(true);
+                      }
+                      return _searchList(
+                          context, model, index); // 上で指定した数だけ繰り返す
+                    },
+                  ),
                 ),
               ),
             ],
